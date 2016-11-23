@@ -1,8 +1,8 @@
 /**
  This is a exercise/demo of JavaScript Promosie class
- Sleeper: a object takes index,sleepTime(in milliseconds) to construct.
- When its sleepSync() method is called, it blocks the thread for the time of {sleepTime} and return a string indicating its identity
- When its sleepAsync(index,interval,resolve) method is called, it pass the parameters to setTimeout and calls resolve with a response string with index and interval inside
+ Sleeper: a object takes index,sleepTime(in milliseconds) for the thread's runtime and identification.
+ Methods:
+    sleepPromise: create a Promise for current object
  */
 
 class Sleeper {
@@ -11,24 +11,8 @@ class Sleeper {
         this.sleepTime = Math.round(sleepTime);
     }
 
-    sleepSync(): string {
-        let start = new Date().getTime();
-        while (true) {
-            if ((new Date().getTime() - start) > this.sleepTime) {
-                break;
-            }
-        }
-        return `Sleeper #${this.index} woke up in ${this.sleepTime} milliseconds `;
-    }
-
-    sleepAsync(index, interval, resolve): void {
-        setTimeout(function () {
-            console.log(`Finished execution of sleeper #${index} with interval=${interval}`);
-            resolve(`Result of sleeper #${index} with interval=${interval}`);
-        }, interval);
-    }
-
-    sleepPromise(): Promise {
+    /** sleepPromise creates and returns a Promise object for the Sleeper object */
+    sleepPromise(): Promise<string> {
         var i = this.index;
         var interval = this.sleepTime;
         return new
@@ -42,46 +26,64 @@ class Sleeper {
     }
 }
 
-let totalThreads: number = 10;
+// 1. Create a bunch of Promise and let them run
+test1(1,11);
 
-/**
- // Run it sequentially
- console.log("Running sequentially ... ")
- for (let i=0;i<totalThreads;i++) {
-    let interval : number=Math.random()*3000;
-    let sleeper=new Sleeper(i,interval);
-    console.log(sleeper.sleepSync());
+// 2. A promise array which will have their result collected by Promise.all
+test2(11,21);
+
+// 3. A Promise.race example, to pick the Promise who finishes first
+test3(21,31);
+
+// 4. If we want one Promise is only made after the other finishes, we need to put the creation of the 2nd Promise in the first then() to chain them up
+test4(888,999);
+
+function test1(startIndex : number, stopIndex : number) : void {
+    console.log(` -------------- A array of separate Promises with index ${startIndex}-${stopIndex-1} ... -------------- `)
+    for (let i: number = startIndex; i < stopIndex; i++) {
+        let interval: number = Math.random() * 5000;
+        let sleeper = new Sleeper(i, interval);
+        sleeper.sleepPromise();
+    }
 }
- */
 
-
-/**
- // Use a Promise array
- console.log("A array of separate Promises ")
- let promises : Array<Promise> =[];
- let sleeperResolve=function (response) {
-    console.log(`Info: ${response}`);
-};
- for (let i=0;i<totalThreads;i++) {
-    promises.push(new Promise(function(resolve,reject) {
-        let interval : number=Math.random()*5000;
-        let sleeper=new Sleeper(i,interval);
-        sleeper.sleepAsync(i,sleeper.sleepTime,sleeperResolve);
-        console.log(`Making promise #${i} with interval=${sleeper.sleepTime}`);
-    }).then(function(response) {
-            console.log(`Info: ${response}`);
-        }, function(err) { }
-    ));
+function test2(startIndex : number, stopIndex : number) : void {
+    console.log(` -------------- Promises in an array executes in parrallel with index ${startIndex}-${stopIndex-1}, but result is collected in sequence with Promise.all -------------- `)
+    let promises: Array<Promise<string>> = [];
+    for (let i: number = startIndex; i < stopIndex; i++) {
+        let interval: number = Math.random() * 5000;
+        let sleeper = new Sleeper(i, interval);
+        let currentPromise : Promise<string> = sleeper.sleepPromise();
+        promises.push(currentPromise);
+    }
+    Promise.all(promises).then(function(results) {
+        for (let r of results) {
+            console.log(`Collected data: ${r}`);
+        }
+    })
 }
- */
 
-// A promise array which doesn't collect result
-console.log("A array of sequencing Promises ")
-let lastPromise: Promise = null;
-let promises: Array<Promise> = [];
-for (let i: number = 0; i < totalThreads; i++) {
-    let interval: number = Math.random() * 5000;
-    let sleeper = new Sleeper(i, interval);
-    let currentPromise = sleeper.sleepPromise();
-    promises.push(currentPromise);
+function test3(startIndex : number, stopIndex : number) : void {
+    console.log(` -------------- Promises in an array executes in parrallel with index ${startIndex}-${stopIndex-1}, get the one who finishes first -------------- `)
+    let promises: Array<Promise<string>> = [];
+    for (let i: number = startIndex; i < stopIndex; i++) {
+        let interval: number = Math.random() * 5000;
+        let sleeper = new Sleeper(i, interval);
+        let currentPromise : Promise<string> = sleeper.sleepPromise();
+        promises.push(currentPromise);
+    }
+    Promise.race(promises).then(function(result) {
+        console.log(`First finished: ${result}`);
+    })
+}
+
+function test4(firstIndex : number, sescondIndex : number) : void {
+    let firstSleeper = new Sleeper(firstIndex, Math.random() * 5000);
+    let secondSleeper = new Sleeper(sescondIndex, Math.random() * 5000);
+    firstSleeper.sleepPromise().then(function(response) {
+        console.log("firstSleeper response:"+response);
+        secondSleeper.sleepPromise().then(function (response) {
+            console.log("secondSleeper response:"+response);
+        });
+    });
 }
